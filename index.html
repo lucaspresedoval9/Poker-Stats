@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Poker Stats">
+<meta name="format-detection" content="telephone=no">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+
+<title>Poker Stats V2</title>
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{--bg:#0b1020;--card:#151c2f;--muted:#8f9bb3;--txt:#f4f7fb;--line:#26314b;--good:#39d98a;--bad:#ff6b6b;--accent:#7c8cff;--gold:#f6c85f}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.app{max-width:980px;margin:auto;padding:calc(16px + env(safe-area-inset-top)) 16px calc(92px + env(safe-area-inset-bottom))}.top{display:flex;justify-content:space-between;align-items:center;margin:6px 0 18px}
+h1{font-size:25px;margin:0} h2{font-size:18px;margin:0 0 12px}.sub{color:var(--muted);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+.kpi b{font-size:21px;display:block;margin-top:5px}.good{color:var(--good)}.bad{color:var(--bad)}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}.btn{border:0;border-radius:13px;padding:13px 14px;font-weight:700;background:var(--accent);color:white;font-size:15px}
+.btn.secondary{background:#202a43}.btn.danger{background:#51252b}.section{margin-top:18px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px 5px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--muted);font-weight:600}
+.nav{position:fixed;bottom:0;left:0;right:0;background:#0f1628eF;backdrop-filter:blur(12px);border-top:1px solid var(--line);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom)}
+.navin{width:min(980px,100%);display:grid;grid-template-columns:repeat(5,1fr)}.nav button{background:none;border:0;color:var(--muted);padding:11px 2px;font-size:11px}.nav button.active{color:white}.ico{display:block;font-size:20px;margin-bottom:3px}
+.view{display:none}.view.active{display:block}
+form{display:grid;gap:10px}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{font-size:12px;color:var(--muted)}
+input,select,textarea{width:100%;margin-top:5px;background:#0f1628;border:1px solid var(--line);border-radius:11px;padding:11px;color:white;font-size:16px}textarea{min-height:72px}
+.filters{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.pill{font-size:12px;color:var(--muted)}
+.bar{height:9px;background:#222c43;border-radius:10px;overflow:hidden;margin-top:5px}.fill{height:100%;background:var(--accent)}
+.empty{color:var(--muted);text-align:center;padding:25px 10px}.session{display:flex;justify-content:space-between;gap:10px}.right{text-align:right}
+@media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.statsgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}}
+
+.edge{display:grid;gap:9px}.edgeRow{display:grid;grid-template-columns:110px 1fr 75px;align-items:center;gap:8px;font-size:12px}
+.mini{font-size:11px;color:var(--muted)}.toolbar{display:flex;gap:8px;flex-wrap:wrap}.toolbar .btn{padding:9px 11px;font-size:12px}
+.badge{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:4px 8px;font-size:11px;color:var(--muted)}
+input[type="month"]{min-width:0}.warn{color:var(--gold)}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="top"><div><h1>♠ Poker Stats</h1><div class="sub">MTT Performance & Edge Tracker</div></div><div class="toolbar"><button class="btn secondary" onclick="document.getElementById('importFile').click()">Importar</button><button class="btn secondary" onclick="exportData()">Exportar</button><input id="importFile" type="file" accept=".json" style="display:none" onchange="importData(event)"></div></div>
+
+<section id="dashboard" class="view active">
+ <div id="installHint" class="card" style="margin-bottom:10px;display:none">
+  <b>Instalar en iPhone</b>
+  <div class="sub" style="margin-top:5px">Abre esta web en Safari → Compartir → Añadir a pantalla de inicio → activa “Abrir como app”.</div>
+ </div>
+ <div class="card" style="margin-bottom:10px">
+  <div class="row">
+   <label>Bankroll inicial (€)<input id="startBankroll" type="number" step=".01" min="0" onchange="setBankroll()"></label>
+   <label>Periodo<select id="period" onchange="renderAll()"><option value="all">Todo</option><option value="30">Últimos 30 días</option><option value="90">Últimos 90 días</option><option value="365">Último año</option></select></label>
+  </div>
+ </div>
+ <div class="grid">
+  <div class="card kpi"><span class="sub">Beneficio</span><b id="kProfit">0 €</b></div>
+  <div class="card kpi"><span class="sub">ROI</span><b id="kROI">0%</b></div>
+  <div class="card kpi"><span class="sub">ABI</span><b id="kABI">0 €</b></div>
+  <div class="card kpi"><span class="sub">ITM</span><b id="kITM">0%</b></div>
+ </div>
+ <div class="actions"><button class="btn" onclick="show('new')">＋ Torneo</button><button class="btn secondary" onclick="show('sessions')">Ver sesiones</button></div>
+ <div class="statsgrid">
+  <div class="card section"><h2>Bankroll / beneficio acumulado</h2><canvas id="chart" height="150"></canvas></div>
+  <div class="card section"><h2>Resumen</h2><table><tbody>
+   <tr><td>Torneos</td><td id="rGames">0</td></tr><tr><td>Buy-ins</td><td id="rBuyins">0 €</td></tr>
+   <tr><td>Cobros</td><td id="rCash">0 €</td></tr><tr><td>Bounties</td><td id="rBounty">0 €</td></tr>
+   <tr><td>Final tables</td><td id="rFT">0</td></tr><tr><td>Victorias</td><td id="rWins">0</td></tr>
+  </tbody></table></div>
+ </div>
+ <div class="statsgrid">
+ <div class="card section"><h2>¿Dónde está tu edge?</h2><div id="edgeBox" class="edge"></div></div>
+ <div class="card section"><h2>Riesgo y rendimiento</h2><table><tbody>
+  <tr><td>Bankroll actual</td><td id="riskBank">0 €</td></tr>
+  <tr><td>Máximo histórico</td><td id="riskPeak">0 €</td></tr>
+  <tr><td>Drawdown actual</td><td id="riskDD">0 €</td></tr>
+  <tr><td>Máx. drawdown</td><td id="riskMaxDD">0 €</td></tr>
+  <tr><td>Beneficio / hora</td><td id="riskHourly">0 €</td></tr>
+  <tr><td>ROI sin bounties</td><td id="riskNoBounty">0%</td></tr>
+ </tbody></table></div>
+</div>
+<div class="card section"><h2>Últimos torneos</h2><div id="recent"></div></div>
+</section>
+
+<section id="new" class="view">
+ <h2>Registrar torneo</h2>
+ <form id="tform">
+  <div class="row"><label>Fecha<input required type="date" id="date"></label><label>Sala<select id="room"><option>Winamax</option><option>PokerStars</option><option>GGPoker</option><option>888poker</option><option>PartyPoker</option><option>Otra</option></select></label></div>
+  <label>Nombre del torneo<input id="name" placeholder="Ej. Battle Royale 20€"></label>
+  <div class="row"><label>Formato<select id="format"><option>Regular</option><option>KO</option><option>PKO</option><option>Mystery KO</option><option>Space KO</option><option>Satélite</option></select></label><label>Mesa<select id="tableSize"><option value="6">6-max</option><option value="3">3-max</option><option value="9">9-max</option><option value="8">8-max</option><option value="2">Heads-up</option></select></label></div>
+  <div class="row"><label>Velocidad<select id="speed"><option>Regular</option><option>Turbo</option><option>Hyper</option></select></label><label>Field<input type="number" min="0" id="field" placeholder="500"></label></div>
+  <div class="row"><label>Buy-in total (€)<input required type="number" step=".01" min="0" id="buyin"></label><label>Reentradas<input type="number" min="0" id="reentries" value="0"></label></div>
+  <div class="row"><label>Premio por posición (€)<input type="number" step=".01" min="0" id="prize" value="0"></label><label>Bounties (€)<input type="number" step=".01" min="0" id="bounty" value="0"></label></div>
+  <div class="row"><label>Posición final<input type="number" min="1" id="position"></label><label>Duración (horas)<input type="number" step=".1" min="0" id="hours"></label></div>
+  <div class="row"><label>Hora de inicio<input type="time" id="startTime"></label><label>Tipo de entrada<select id="entryType"><option>Programado</option><option>Late reg</option><option>Satélite</option></select></label></div>
+  <label>Notas<textarea id="notes" placeholder="Decisiones importantes, sensaciones, errores..."></textarea></label>
+  <button class="btn" type="submit">Guardar torneo</button>
+ </form>
+</section>
+
+<section id="tournaments" class="view">
+ <h2>Torneos</h2>
+ <div class="filters"><label>Sala<select id="fRoom" onchange="renderTournaments()"><option value="">Todas</option></select></label><label>Formato<select id="fFormat" onchange="renderTournaments()"><option value="">Todos</option></select></label><label>Mesa<select id="fTable" onchange="renderTournaments()"><option value="">Todas</option></select></label></div>
+ <div class="row section"><label>Desde<input type="date" id="fFrom" onchange="renderTournaments()"></label><label>Hasta<input type="date" id="fTo" onchange="renderTournaments()"></label></div>
+ <div class="card section" style="overflow:auto"><div id="tlist"></div></div>
+</section>
+
+<section id="sessions" class="view">
+ <h2>Sesiones</h2><div class="sub">Agrupación automática por fecha</div>
+ <div id="sessionList" class="section"></div>
+</section>
+
+<section id="analysis" class="view">
+ <h2>Análisis</h2>
+ <div class="card"><label>Comparar por<select id="groupBy" onchange="renderAnalysis()"><option value="format">Modalidad</option><option value="room">Sala</option><option value="tableSize">Tamaño de mesa</option><option value="speed">Velocidad</option><option value="abi">Tramo de buy-in</option><option value="fieldBand">Tamaño de field</option><option value="weekday">Día de la semana</option><option value="timeBand">Franja horaria</option></select></label></div>
+ <div class="card section" style="overflow:auto"><div id="analysisTable"></div></div>
+</section>
+</div>
+
+<div class="nav"><div class="navin">
+<button class="active" data-v="dashboard" onclick="show('dashboard')"><span class="ico">⌂</span>Inicio</button>
+<button data-v="new" onclick="show('new')"><span class="ico">＋</span>Torneo</button>
+<button data-v="tournaments" onclick="show('tournaments')"><span class="ico">♠</span>Historial</button>
+<button data-v="sessions" onclick="show('sessions')"><span class="ico">◷</span>Sesiones</button>
+<button data-v="analysis" onclick="show('analysis')"><span class="ico">▥</span>Análisis</button>
+</div></div>
+
+<script>
+const KEY='pokerStatsV1';
+let data=JSON.parse(localStorage.getItem(KEY)||'[]');
+let settings=JSON.parse(localStorage.getItem('pokerStatsSettingsV2')||'{"startBankroll":0}');
+document.getElementById('startBankroll').value=settings.startBankroll||0;
+function setBankroll(){settings.startBankroll=+document.getElementById('startBankroll').value||0;localStorage.setItem('pokerStatsSettingsV2',JSON.stringify(settings));renderAll()}
+function filteredPeriod(){
+ let p=document.getElementById('period')?.value||'all'; if(p==='all')return data;
+ let cut=new Date();cut.setDate(cut.getDate()-Number(p));let iso=cut.toISOString().slice(0,10);return data.filter(x=>x.date>=iso)
+}
+const euro=n=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:2}).format(n||0);
+const pct=n=>(isFinite(n)?n:0).toFixed(1)+'%';
+const val=id=>document.getElementById(id).value;
+function save(){localStorage.setItem(KEY,JSON.stringify(data));renderAll()}
+function show(v){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));document.getElementById(v).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.v===v)); if(v==='analysis')renderAnalysis(); if(v==='tournaments')renderTournaments(); if(v==='sessions')renderSessions();}
+document.getElementById('date').value=new Date().toISOString().slice(0,10);
+document.getElementById('tform').addEventListener('submit',e=>{
+ e.preventDefault();
+ data.push({id:Date.now(),date:val('date'),room:val('room'),name:val('name'),format:val('format'),tableSize:val('tableSize'),speed:val('speed'),field:+val('field')||0,buyin:+val('buyin')||0,reentries:+val('reentries')||0,prize:+val('prize')||0,bounty:+val('bounty')||0,position:+val('position')||0,hours:+val('hours')||0,notes:val('notes'),startTime:val('startTime'),entryType:val('entryType')});
+ e.target.reset();document.getElementById('date').value=new Date().toISOString().slice(0,10);save();show('dashboard');
+});
+function totals(arr=data){
+ let buy=arr.reduce((s,x)=>s+x.buyin,0), cash=arr.reduce((s,x)=>s+x.prize+x.bounty,0), profit=cash-buy;
+ return {n:arr.length,buy,cash,profit,roi:buy?profit/buy*100:0,abi:arr.length?buy/arr.length:0,itm:arr.length?arr.filter(x=>x.prize+x.bounty>0).length/arr.length*100:0,bounty:arr.reduce((s,x)=>s+x.bounty,0),hours:arr.reduce((s,x)=>s+x.hours,0)}
+}
+function color(el,n){el.classList.remove('good','bad');if(n>0)el.classList.add('good');if(n<0)el.classList.add('bad')}
+function renderDashboard(){
+ let active=filteredPeriod(); let t=totals(active);let kp=document.getElementById('kProfit');kp.textContent=euro(t.profit);color(kp,t.profit);
+ let kr=document.getElementById('kROI');kr.textContent=pct(t.roi);color(kr,t.roi);
+ kABI.textContent=euro(t.abi);kITM.textContent=pct(t.itm);rGames.textContent=t.n;rBuyins.textContent=euro(t.buy);rCash.textContent=euro(t.cash);rBounty.textContent=euro(t.bounty);
+ rFT.textContent=data.filter(x=>x.position>0&&x.position<=9).length;rWins.textContent=data.filter(x=>x.position===1).length;
+ let arr=[...active].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6);
+ recent.innerHTML=arr.length?'<table><tr><th>Fecha</th><th>Torneo</th><th>Resultado</th></tr>'+arr.map(x=>`<tr><td>${x.date}</td><td>${x.name||x.format}<div class="sub">${x.room} · ${x.format}</div></td><td class="${x.prize+x.bounty-x.buyin>=0?'good':'bad'}">${euro(x.prize+x.bounty-x.buyin)}</td></tr>`).join('')+'</table>':'<div class="empty">Todavía no hay torneos registrados.</div>';
+ drawChart();
+}
+
+function advancedMetrics(){
+ let arr=[...filteredPeriod()].sort((a,b)=>a.date.localeCompare(b.date));let br=settings.startBankroll||0,peak=br,maxDD=0;
+ arr.forEach(x=>{br+=x.prize+x.bounty-x.buyin;peak=Math.max(peak,br);maxDD=Math.max(maxDD,peak-br)});
+ let t=totals(arr), noB=arr.reduce((s,x)=>s+x.prize-x.buyin,0), roiNB=t.buy?noB/t.buy*100:0;
+ riskBank.textContent=euro(br);riskPeak.textContent=euro(peak);riskDD.textContent=euro(peak-br);riskMaxDD.textContent=euro(maxDD);
+ riskHourly.textContent=t.hours?euro(t.profit/t.hours):euro(0);riskNoBounty.textContent=pct(roiNB);
+}
+function renderEdge(){
+ let arr=filteredPeriod(), groups={};
+ arr.forEach(x=>{let k=x.format+' · '+x.tableSize+'-max';(groups[k]??=[]).push(x)});
+ let rows=Object.entries(groups).map(([k,a])=>[k,totals(a)]).filter(x=>x[1].n>=2).sort((a,b)=>b[1].roi-a[1].roi).slice(0,5);
+ edgeBox.innerHTML=rows.length?rows.map(([k,t])=>`<div class="edgeRow"><div>${k}<div class="mini">${t.n} MTT</div></div><div class="bar"><div class="fill" style="width:${Math.min(100,Math.max(4,50+t.roi/2))}%"></div></div><div class="${t.roi>=0?'good':'bad'}">${pct(t.roi)}</div></div>`).join(''):'<div class="empty">Necesitamos al menos 2 torneos por grupo para empezar a detectar tendencias.</div>';
+}
+function drawChart(){
+ const c=document.getElementById('chart'),ctx=c.getContext('2d'),dpr=devicePixelRatio||1,w=c.clientWidth,h=150;c.width=w*dpr;c.height=h*dpr;ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);
+ let arr=[...data].sort((a,b)=>a.date.localeCompare(b.date));if(!arr.length){ctx.fillStyle='#8f9bb3';ctx.font='13px sans-serif';ctx.fillText('Añade torneos para ver la evolución',10,75);return}
+ let cum=0,pts=arr.map(x=>(cum+=x.prize+x.bounty-x.buyin));let mn=Math.min(0,...pts),mx=Math.max(0,...pts),range=mx-mn||1;
+ ctx.strokeStyle='#7c8cff';ctx.lineWidth=2.5;ctx.beginPath();pts.forEach((p,i)=>{let x=10+(w-20)*(i/(Math.max(1,pts.length-1))),y=10+(h-20)*(1-(p-mn)/range);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();
+}
+function fillFilters(){
+ const add=(id,key)=>{let s=document.getElementById(id),cur=s.value,first=s.options[0].outerHTML;s.innerHTML=first+[...new Set(data.map(x=>x[key]))].filter(Boolean).map(v=>`<option>${v}</option>`).join('');s.value=cur};
+ add('fRoom','room');add('fFormat','format');add('fTable','tableSize');
+}
+function renderTournaments(){
+ fillFilters();let a=data.filter(x=>(!fRoom.value||x.room===fRoom.value)&&(!fFormat.value||x.format===fFormat.value)&&(!fTable.value||x.tableSize===fTable.value)&&(!fFrom.value||x.date>=fFrom.value)&&(!fTo.value||x.date<=fTo.value)).sort((a,b)=>b.date.localeCompare(a.date));
+ tlist.innerHTML=a.length?`<table><tr><th>Fecha</th><th>Sala / torneo</th><th>Formato</th><th>BI</th><th>Cobro</th><th>Profit</th><th></th></tr>${a.map(x=>`<tr><td>${x.date}</td><td>${x.room}<div class="sub">${x.name||''}</div></td><td>${x.format} · ${x.tableSize}-max</td><td>${euro(x.buyin)}</td><td>${euro(x.prize+x.bounty)}</td><td class="${x.prize+x.bounty-x.buyin>=0?'good':'bad'}">${euro(x.prize+x.bounty-x.buyin)}</td><td><button class="btn secondary" style="padding:6px" onclick="editTournament(${x.id})">✎</button> <button class="btn danger" style="padding:6px" onclick="del(${x.id})">×</button></td></tr>`).join('')}</table>`:'<div class="empty">Sin resultados para estos filtros.</div>';
+}
+function editTournament(id){
+ let x=data.find(t=>t.id===id);if(!x)return;
+ let prize=prompt('Premio por posición (€):',x.prize);if(prize===null)return;
+ let bounty=prompt('Bounties (€):',x.bounty);if(bounty===null)return;
+ let pos=prompt('Posición final:',x.position||'');if(pos===null)return;
+ x.prize=+prize||0;x.bounty=+bounty||0;x.position=+pos||0;save();renderTournaments();
+}
+function del(id){if(confirm('¿Eliminar este torneo?')){data=data.filter(x=>x.id!==id);save()}}
+function renderSessions(){
+ let g={};data.forEach(x=>(g[x.date]??=[]).push(x));let dates=Object.keys(g).sort().reverse();
+ sessionList.innerHTML=dates.length?dates.map(d=>{let t=totals(g[d]);return `<div class="card" style="margin-bottom:10px"><div class="session"><div><b>${d}</b><div class="sub">${t.n} torneos · ABI ${euro(t.abi)} · ${t.hours.toFixed(1)} h</div></div><div class="right"><b class="${t.profit>=0?'good':'bad'}">${euro(t.profit)}</b><div class="sub">ROI ${pct(t.roi)}${t.hours?' · '+euro(t.profit/t.hours)+'/h':''}</div></div></div></div>`}).join(''):'<div class="empty">Las sesiones aparecerán agrupadas por día.</div>';
+}
+function abiBand(x){return x.buyin<10?'<10 €':x.buyin<20?'10–20 €':x.buyin<50?'20–50 €':x.buyin<100?'50–100 €':'100 €+'}
+function fieldBand(x){return x.field<100?'<100':x.field<500?'100–499':x.field<1000?'500–999':x.field<3000?'1k–3k':'3k+'}
+function weekday(x){return ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][new Date(x.date+'T12:00:00').getDay()]}
+function timeBand(x){let h=parseInt((x.startTime||'00').slice(0,2));return !x.startTime?'Sin hora':h<17?'Antes 17h':h<20?'17–20h':h<23?'20–23h':'23h+'}
+function renderAnalysis(){
+ let key=groupBy.value,g={};filteredPeriod().forEach(x=>{let k=key==='abi'?abiBand(x):key==='fieldBand'?fieldBand(x):key==='weekday'?weekday(x):key==='timeBand'?timeBand(x):x[key];(g[k]??=[]).push(x)});
+ let rows=Object.entries(g).map(([k,a])=>[k,totals(a)]).sort((a,b)=>b[1].profit-a[1].profit);
+ analysisTable.innerHTML=rows.length?`<table><tr><th>Grupo</th><th>MTT</th><th>ABI</th><th>ROI</th><th>ITM</th><th>Profit</th><th>Bounties</th></tr>${rows.map(([k,t])=>`<tr><td><b>${k}${key==='tableSize'?'-max':''}</b></td><td>${t.n}</td><td>${euro(t.abi)}</td><td class="${t.roi>=0?'good':'bad'}">${pct(t.roi)}</td><td>${pct(t.itm)}</td><td class="${t.profit>=0?'good':'bad'}">${euro(t.profit)}</td><td>${euro(t.bounty)}</td></tr>`).join('')}</table>`:'<div class="empty">Registra torneos para generar comparativas.</div>';
+}
+function importData(ev){
+ const f=ev.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(!Array.isArray(d))throw 0;if(confirm('Importar '+d.length+' torneos? Se sustituirán los datos actuales.')){data=d;save()}}catch(e){alert('Archivo no válido')}};r.readAsText(f);ev.target.value='';
+}
+function exportData(){
+ const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='poker-stats-backup.json';a.click();URL.revokeObjectURL(a.href);
+}
+function renderAll(){renderDashboard();advancedMetrics();renderEdge();renderTournaments();renderSessions();renderAnalysis()}
+window.addEventListener('resize',drawChart);renderAll();
+
+function isStandalone(){return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true}
+if(/iPhone|iPad|iPod/.test(navigator.userAgent) && !isStandalone()){document.getElementById('installHint').style.display='block'}
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}))}
+
+</script>
+</body></html>
